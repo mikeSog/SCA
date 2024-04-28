@@ -1,0 +1,119 @@
+pipeline {
+    agent any
+
+    options {
+        gitLabConnection('gitlab')
+    }
+
+    stages {
+        stage("build and test") {
+            parallel {
+                stage("build") {
+                    agent {
+                        docker {
+                            image 'python:3.6'
+                            args '-u root'
+                        }
+                    }
+                    steps {
+                        sh """
+                        pip3 install --user virtualenv
+                        python3 -m virtualenv env
+                           . env/bin/activate
+                        pip3 install -r requirements.txt
+                        python3 manage.py check
+                        """
+                    }
+                }
+                stage("test") {
+                    agent {
+                        docker {
+                            image 'python:3.6'
+                            args '-u root'
+                        }
+                    }
+ steps {
+                        sh """
+                        pip3 install --user virtualenv
+                        python3 -m virtualenv env
+                        . env/bin/activate
+                        pip3 install -r requirements.txt
+                        python3 manage.py test taskManager
+                        """
+                    }
+                }
+            }
+        }
+        stage("integration") {
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    echo "This is an integration step"
+                    sh "exit 1"
+                }
+            }
+             when {
+              buildingTag()
+              beforeAgent true
+            }
+
+        }
+         stage("release"){
+            environment {
+                registryUrl = "gitlab-registry-9wos1kem.lab.practical-devsecops.training"
+                registryCreds = "registry-auth" // Credentials Id to authenticate with Docker Registry
+            }
+            steps{
+                script {
+                    dockerImage = docker.build registryUrl + "/root/django-nv:$BUILD_NUMBER"
+                    docker.withRegistry('https://' + registryUrl, registryCreds) {   
+                        dockerImage.push()
+                    }
+                }
+            }
+        }
+
+        stage("prod") {
+            steps {
+                input "Deploy to production?“
+                sshagent(['ssh-prod']) { 
+                   sh ""“
+                    ssh -o StrictHostKeyChecking=no root@prod-9wos1kem ‘
+                    docker login -u root -p pdso-training $registryUrl
+                    docker rm -f django.nv
+                    docker pull $registryUrl/root/django-nv:$BUILD_NUMBER
+                    docker run -d --name django.nv -p 8000:8000 $registryUrl/root/django-nv:$BUILD_NUMBER                    '                    """                
+                }            
+            }        
+          }
+
+        stage("artifact") {
+            steps {
+                script {
+                    // Create a simple text file using the echo command
+                    sh 'echo "This is an artifact file" > artifact.txt'
+
+                    // Archive the artifact file
+                    archiveArtifacts artifacts: 'artifact.txt'
+                }
+            }
+        
+      }
+    }
+    post {
+        failure {
+            updateGitlabCommitStatus(name: "\${env.STAGE_NAME}", state: 'failed')
+        }
+        unstable {
+            updateGitlabCommitStatus(name: "\${env.STAGE_NAME}", state: 'failed')
+        }
+        success {
+            updateGitlabCommitStatus(name: "\${env.STAGE_NAME}", state: 'success')
+        }
+        aborted {
+            updateGitlabCommitStatus(name: "\${env.STAGE_NAME}", state: 'canceled')
+        }
+        always { 
+            deleteDir()                     // clean up workspace
+        }
+    }
+}

@@ -1,0 +1,51 @@
+stages: 
+  - build
+  - test
+  - integration
+  - deploy 
+
+build: 
+  stage: "build"
+  script:
+    - echo "this is my build stage"
+
+test:
+  stage: "test"
+  script: 
+    - echo "this is my test stage"
+integration:
+  stage: "integration"
+  script:
+    - echo "this is my integration stage"
+    - echo "this is an output" > output.txt
+    - exit 1
+  artifacts:
+    paths:
+      - output.txt
+    expire_in: 1 day
+  when: always
+  allow_failure: true
+
+deploy:
+  stage: "deploy"
+  script:
+    - echo "this is my deploy stage"
+  when: manual
+someScan:
+  script: 
+    - ./security-tool.sh    # <-- this example script may generate a file as an output
+  artifacts:                    # <--- To save results, we use artifacts tag
+    paths:                      # <--- We then give the path/paths of the scan result files we want to store for further processing
+    - vulnerabilities.json                  #<--- The filename
+    when: always
+    expire_in: 1 week       # <--- To save disk space, we want to store only for 1 week
+
+Example: 
+test:
+  stage: test
+  script:
+    - echo "This is a test step."
+    - docker run -i alpine sh -c "echo '{\"vulnerability\":\"XSS Injection\"}' > vulnerabilities.json" # docker command produces an output file
+  artifacts:      # notice a new tag artifacts
+    paths: [vulnerabilities.json]   # this is the path to the vulnerabilities.json file
+  allow_failure: true   #<--- allow the build to fail but don't mark it as such
