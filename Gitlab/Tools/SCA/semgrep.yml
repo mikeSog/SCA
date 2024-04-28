@@ -33,24 +33,22 @@ test:
    - pip install -r requirements.txt
    - python manage.py test taskManager
 
-osv-scanner:
+semgrep:
   stage: test
-  image: golang:1.21.1-alpine3.18
-  before_script:
-    - apk add npm
-    - npm install
   script:
-    - go install github.com/google/osv-scanner/cmd/osv-scanner@v1
-    - osv-scanner --json . > osv-report.json
+    - docker pull semgrep/semgrep
+    # third party components are stored in requirements.txt for python, so we will scan this particular file with safety.
+    - docker run --rm -v "${PWD}:/src" semgrep/semgrep semgrep ci --supply-chain --output semgrep-sca-output.json
   artifacts:
-    paths: [osv-report.json]
-    when: always 
+    paths: [semgrep-sca-output.json]
+    when: always # What does this do?
+    expire_in: one day
   allow_failure: true
 
 integration:
   stage: integration
   script:
-    - echo "This is an integration step"
+    - echo "This is an integration step."
     - exit 1
   allow_failure: true # Even if the job fails, continue to the next stages
 
