@@ -33,7 +33,7 @@ test:
    - pip install -r requirements.txt
    - python manage.py test taskManager
 
-osv-scanner:
+osv-scanner: #their version
   stage: test
   image: golang:1.21.1-alpine3.18
   before_script:
@@ -45,6 +45,24 @@ osv-scanner:
   artifacts:
     paths: [osv-report.json]
     when: always 
+  allow_failure: true
+
+oast-osv: #their version
+  stage: build
+  image: node:alpine3.10
+  before_script:
+    - wget -O osv-scanner https://github.com/google/osv-scanner/releases/download/v1.4.0/osv-scanner_1.4.0_linux_amd64 
+    - chmod +x osv-scanner
+    - mv osv-scanner /usr/local/bin/
+  script:
+    - npm install
+    - osv-scanner --help
+    - osv-scanner --json . > osv-report3.json
+  artifacts:
+    paths:
+      - osv-report3.json
+    when: always
+    expire_in: one week
   allow_failure: true
 
 integration:

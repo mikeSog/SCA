@@ -45,6 +45,31 @@ semgrep:
     expire_in: one day
   allow_failure: true
 
+semgrep2:
+  stage: test
+  image: semgrep/semgrep
+  script: 
+    - semgrep ci --supply-chain --output semgrep-sca-output2.json --json 
+  artifacts:
+    paths: [semgrep-sca-output2.json]
+    when: always # What does this do?
+    expire_in: one day
+  allow_failure: true
+
+test:
+  stage: test
+  image: python:3.6
+  before_script:
+    - pip3 install semgrep
+  script: 
+    - semgrep ci --supply-chain --output semgrep-sca-output.json --json 
+  artifacts:
+    paths: [semgrep-sca-output.json]
+    when: always # What does this do?
+    expire_in: one day
+  allow_failure: true
+
+
 integration:
   stage: integration
   script:

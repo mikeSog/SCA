@@ -21,6 +21,22 @@ trivy:
     expire_in: one week
   allow_failure: true   #<--- allow the build to fail but don't mark it as such
 
+trivy2: 
+  stage: test
+  before_script: 
+    - apk add --no-cache wget dpkg
+    - wget https://github.com/aquasecurity/trivy/releases/download/v0.48.1/trivy_0.48.1_Linux-64bit.tar.gz
+    - tar zxvf trivy_0.48.1_Linux-64bit.tar.gz
+    - mv trivy /usr/local/bin/    
+  script:
+    - trivy fs . --exit-code 1 -f json -o trivy-report.json
+  artifacts:
+    paths: [trivy-report.json]
+    when: always # What is this for?
+    expire_in: one week
+  allow_failure: true
+
+
 test:
   stage: test
   image: python:3.6
