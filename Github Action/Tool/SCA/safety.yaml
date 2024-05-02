@@ -47,7 +47,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - run: docker run --rm -v $(pwd):/src hysnsec/safety check -r requirements.txt --json > oast-results.json
+      - run: docker run --rm --user $(id -u):$(id -g) -v $(pwd):/src hysnsec/safety check -r requirements.txt --json > oast-results.json
 
       - uses: actions/upload-artifact@v2
         with:

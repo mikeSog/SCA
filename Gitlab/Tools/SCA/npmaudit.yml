@@ -1,0 +1,26 @@
+image: docker:20.10  # To run all jobs in this pipeline, use a latest docker image
+
+services:
+  - docker:dind       # To run all jobs in this pipeline, use a docker image which contains a docker daemon running inside (dind - docker in docker). Reference: https://forum.gitlab.com/t/why-services-docker-dind-is-needed-while-already-having-image-docker/43534
+
+stages:
+  - build
+  - test
+  - release
+  - preprod
+  - integration
+  - prod
+
+npm-audit: #their version
+  stage: build
+  image: node:alpine3.10
+  before_script:
+    - npm install
+  script:
+    - npm audit --json | tee npm-audit-results.json
+  artifacts:
+    paths:
+      - npm-audit-results.json
+    when: always
+    expire_in: one week
+  allow_failure: true

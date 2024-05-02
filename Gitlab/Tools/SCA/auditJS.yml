@@ -32,6 +32,20 @@ auditjs:
     expire_in: one week
   allow_failure: true  #<--- allow the build to fail but don't mark it as such
 
+auditjs2:
+  stage: test
+  before_script: 
+    - npm install
+    - npm install -g auditjs
+  script:
+    - auditjs ossi -q -j | tee auditjs.json
+  artifacts:
+    paths: [auditjs.json]
+    when: always
+    expire_in: one week
+  allow_failure: true
+
+
 integration:
   stage: integration
   script:

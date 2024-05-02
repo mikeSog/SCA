@@ -33,33 +33,21 @@ test:
    - pip install -r requirements.txt
    - python manage.py test taskManager
 
-oast:
-  stage: test
+sast:
+  stage: build
   script:
-    - docker pull hysnsec/safety  # We are going to pull the hysnsec/safety image to run the safety scanner
-    # third party components are stored in requirements.txt for python, so we will scan this particular file with safety.
-    - docker run --rm --user $(id -u):$(id -g) -v $(pwd):/src hysnsec/safety check -r requirements.txt --json > oast-results.json
+    - docker run -v $(pwd):/src --rm hysnsec/bandit bandit -r . -l -f -json | tee bandit-output.json
   artifacts:
-    paths: [oast-results.json]
-    when: always # What does this do?
-
-oast2: 
-  stage: test
-  image: python:3.6
-  before_script:
-    - pip3 install safety==2.3.5
-  script: 
-    - safety check -r requirements.txt --json > oast2-results.json
-  artifacts:
-    paths: [oast2-results.json]
-    when: always
+    paths: [bandit-output.json]
+    when: always  # What is this for?
     expire_in: one week
   allow_failure: true
+
 
 integration:
   stage: integration
   script:
-    - echo "This is an integration step."
+    - echo "This is an integration step"
     - exit 1
   allow_failure: true # Even if the job fails, continue to the next stages
 

@@ -31,6 +31,25 @@ bundler-audit:
     expire_in: one week
   allow_failure: true  #<--- allow the build to fail but don't mark it as such
 
+oast-bundler-audit:
+  stage: build
+  image: ruby:2.6.5
+  before_script: 
+    - apt-get update -qy
+    - apt-get install -y build-essential libreadline-dev # Install compiler dependencies
+    - gem install bundler-audit --user-install # Install bundler-audit
+    - export PATH="${HOME}/.gem/ruby/2.6.0/bin:${PATH}" # Add gem executables to PATH
+  script:
+    - ruby --version # Verify Ruby installation
+    - bundle-audit --version # Check bundler-audit version
+    - bundle-audit  check --format json --output bundle-audit-output.json # Perform SCA scan
+  artifacts:
+    paths: [bundle-audit-output.json]
+    when: always # What is this for?
+    expire_in: one week
+  allow_failure: true  #<--- allow the build to fail but don't mark it as such
+
+
 integration:
   stage: integration
   script:
