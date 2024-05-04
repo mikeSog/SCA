@@ -31,6 +31,7 @@ jobs:
           project: 'webgoat'
           path: '.'
           format: 'JSON'
+        continue-on-error: true             # allow the build to fail, similar to "allow_failure: true" in GitLab
 
       - name: Upload Test results
         uses: actions/upload-artifact@master

@@ -7,12 +7,12 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04                    # similar to "image" in GitLab
+    runs-on: ubuntu-20.04                     # similar to "image" in GitLab
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Setup python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: '3.6'
 
@@ -27,10 +27,10 @@ jobs:
     runs-on: ubuntu-20.04
     needs: build
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Setup python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: '3.6'
 
@@ -40,25 +40,24 @@ jobs:
           source env/bin/activate
           pip install -r requirements.txt
           python manage.py test taskManager
-          
-  oast:
-    runs-on: ubuntu-20.04
+
+  semgrep:
+    name: semgrep/ci
     needs: test
+    runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
-
-      - run: docker run --rm --user $(id -u):$(id -g) -v $(pwd):/src hysnsec/safety check -r requirements.txt --json > oast-results.json
-        continue-on-error: true             # allow the build to fail, similar to "allow_failure: true" in GitLab
-
-      - uses: actions/upload-artifact@v2
+      - uses: actions/checkout@v4
+      - run: docker run --rm -v "${PWD}:/src" returntocorp/semgrep semgrep --config auto --output semgrep-output.json --json
+      - uses: actions/upload-artifact@v3
         with:
-          name: Safety
-          path: oast-results.json
+          name: semgrep
+          path: semgrep-output.json
+        continue-on-error: true             # allow the build to fail, similar to "allow_failure: true" in GitLab
         if: always()                        # what is this for?
 
   integration:
     runs-on: ubuntu-20.04
-    needs: test
+    needs: semgrep
     steps:
       - run: echo "This is an integration step"
       - run: exit 1

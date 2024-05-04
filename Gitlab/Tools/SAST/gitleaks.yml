@@ -33,27 +33,28 @@ test:
    - pip install -r requirements.txt
    - python manage.py test taskManager
 
-sast:
+gitleaks: # their version
   stage: build
   script:
-    - docker run -v $(pwd):/src --rm hysnsec/bandit bandit -r . -l -f -json | tee bandit-output.json
+    - docker pull zricethezav/gitleaks
+    - docker run --user $(id -u):$(id -g) -v $(pwd):/path -w /path zricethezav/gitleaks detect . --report-path gitleaks-output.json
   artifacts:
-    paths: [bandit-output.json]
-    when: always  # What is this for?
+    paths: [gitleaks-output.json]
+    when: always
     expire_in: one week
-  allow_failure: true
+  allow_failure: true   #<--- allow the build to fail
 
-test: 
-  stage: test
+secret-scanning: 
+  stage: build
   image: python:3.6
   before_script:
-    - pip3 install bandit
-  script: 
-    - bandit -r . -f json | tee bandit-output.json
+    - wget https://github.com/gitleaks/gitleaks/releases/download/v8.18.1/gitleaks_8.18.1_linux_x64.tar.gz && tar -xvzf gitleaks_8.18.1_linux_x64.tar.gz && mv gitleaks /usr/local/bin
+  script:
+    - gitleaks detect . --report-path gitleaks-output.json
   artifacts:
-    paths: [bandit-output.json]
-    when: always
+    paths: [gitleaks-output.json]
     expire_in: one day
+    when: always
   allow_failure: true
 
 integration:

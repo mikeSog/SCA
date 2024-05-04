@@ -1,0 +1,36 @@
+------------extra steps---------
+
+
+Next, select With GitHub Actions option and we will create credentials to save our SonarQube token using secrets in our repository.
+
+To set up a secret, go back to django.nv repository and click the Settings tab.
+
+Click the Secrets option, then select New repository secret and add the following credentials into it.
+
+Name	Value
+Name	SONAR_TOKEN
+Value	Paste the token we just generated in SonarQube
+Name	Value
+Name	SONAR_HOST_URL
+Value	https://sonarqube-9gws0jmr.lab.practical-devsecops.training
+Once done, click the Add secret button.
+
+
+------- end extra steps
+ 
+ sonarqube:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: SonarQube Scan
+      uses: sonarsource/sonarqube-scan-action@master
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      with:
+        projectBaseDir: .
+        args: >
+          -Dsonar.projectKey=Django

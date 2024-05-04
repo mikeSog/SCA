@@ -1,7 +1,7 @@
 name: Django                                  # workflow name
 
 on:
-  push:                                       
+  push:
     branches:                                 # similar to "only" in GitLab
       - main
 
@@ -40,20 +40,20 @@ jobs:
           source env/bin/activate
           pip install -r requirements.txt
           python manage.py test taskManager
-          
-  oast:
+
+  sast:
     runs-on: ubuntu-20.04
     needs: test
     steps:
       - uses: actions/checkout@v2
 
-      - run: docker run --rm --user $(id -u):$(id -g) -v $(pwd):/src hysnsec/safety check -r requirements.txt --json > oast-results.json
-        continue-on-error: true             # allow the build to fail, similar to "allow_failure: true" in GitLab
+      - run: docker run --rm -v $(pwd):/src hysnsec/bandit -r /src -f json -o /src/bandit-output.json
+        continue-on-error: true             # allow the build to fail, similar to allow_failure: true
 
       - uses: actions/upload-artifact@v2
         with:
-          name: Safety
-          path: oast-results.json
+          name: Bandit
+          path: bandit-output.json
         if: always()                        # what is this for?
 
   integration:

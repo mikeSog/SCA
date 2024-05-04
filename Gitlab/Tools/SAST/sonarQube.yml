@@ -1,0 +1,38 @@
+---- extra steps -----
+Create a sonar-project.properties file in your repository and paste the following code:
+sonar.projectKey=django
+sonar.qualitygate.wait=true
+
+Add environment variables
+Define the SonarQube Token environment variable.
+
+In GitLab, go to Settings > CI/CD > Variables to add the following variable and make sure it is available for your project:
+In the Key field, enter SONAR_TOKEN 
+In the Value field, enter an existing token, or a newly generated one: Generate a token
+Uncheck the Protect Variable checkbox.
+Check the Mask Variable checkbox.
+Define the SonarQube URL environment variable.
+
+Still in Settings > CI/CD > Variables add a new variable and make sure it is available for your project:
+In the Key field, enter SONAR_HOST_URL 
+In the Value field, enter https://sonarqube-9gws0jmr.lab.practical-devsecops.training 
+Uncheck the Protect Variable checkbox.
+Leave the Mask Variable checkbox unchecked.
+
+------end extra steps
+sonarqube-check:
+  image: 
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: [""]
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
+    GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  script: 
+    - sonar-scanner
+  allow_failure: true
+  only:
+    - main
