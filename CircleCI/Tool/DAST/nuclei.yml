@@ -1,0 +1,74 @@
+version: 2.1
+
+jobs:
+  build:
+    docker:
+      - image: python:3.6
+    steps:
+      - checkout
+      - run:
+          name: Install requirements and run checks
+          command: |
+            pip install -r requirements.txt
+            python manage.py check
+
+  test:
+    docker:
+      - image: python:3.6
+    steps:
+      - checkout
+      - run:
+          name: Install requirements and run tests
+          command: |
+            pip install -r requirements.txt
+            python manage.py test taskManager
+
+  integration:
+    docker:
+      - image: python:3.6
+    steps:
+      - checkout
+      - run:
+          name: Run integration step
+          command: echo "This is an integration step"
+          when: always
+
+  nuclei:
+    machine: true
+    steps:
+      - checkout
+
+      - run: |
+          docker pull projectdiscovery/nuclei:v2.9.6
+          docker run --user $(id -u):$(id -g) -w /nuclei -v $(pwd):/nuclei:rw --rm projectdiscovery/nuclei:v2.9.6 -u ${PROD_URL} -j -o nuclei-output.json
+
+      - store_artifacts:
+          path: nuclei-output.json
+          destination: nuclei-artifact
+  prod:
+    docker:
+      - image: python:3.6
+    steps:
+      - checkout
+      - run:
+          name: Deploy to production
+          command: echo "This is a deploy step."
+
+workflows:
+  version: 2
+  django:
+    jobs:
+      - build
+      - test:
+          requires:
+            - build 
+      - integration:
+          requires:
+            - test
+      - nuclei:
+          requires:
+            - integration
+      - prod:
+          type: approval
+          requires:
+            - integration

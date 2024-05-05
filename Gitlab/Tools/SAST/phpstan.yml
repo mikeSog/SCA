@@ -14,7 +14,7 @@ sast:
     # Download PHPStan docker container
     - docker pull phpstan/phpstan
     # Run docker container, please refer docker security course, if this doesn't make sense to you.
-    - docker run -v $(pwd):/src --rm phpstan/phpstan analyse --error-format=json /src | tee phpstan-output.json
+    - docker run --user $(id -u):$(id -g) -v $(pwd):/src --rm phpstan/phpstan analyse --error-format=json /src | tee phpstan-output.json
   artifacts:
     paths: [phpstan-output.json]
     when: always

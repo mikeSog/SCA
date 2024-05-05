@@ -1,0 +1,41 @@
+name: Django                                  # workflow name
+
+on:
+  push:                                       
+    branches:                                 # similar to "only" in GitLab
+      - main
+
+jobs:
+  zap_baseline:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: main
+
+      - name: ZAP Scan
+        uses: zaproxy/action-baseline@v0.4.0
+        with:
+          token: ${{ secrets.TOKEN }}
+          docker_name: 'softwaresecurityproject/zap-stable:2.13.0'
+          target: ${{ secrets.PROD_URL }}
+        continue-on-error: true
+
+  zap_baseline2:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Pull ZAP Docker image
+        run: docker pull softwaresecurityproject/zap-stable:2.13.0
+
+      - name: Run ZAP Baseline Scan
+        run: |
+          docker run --user root --rm -v $(pwd):/zap/wrk:rw -w /zap softwaresecurityproject/zap-stable:2.13.0 zap-baseline.py -t ${{ secrets.PROD_URL }} -J zap-output.json
+        continue-on-error: true
+
+      - name: Upload ZAP Scan Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: ZAP Scan
+          path: zap-output.json
+        if: always()        # Upload the artifact even if previous steps fail

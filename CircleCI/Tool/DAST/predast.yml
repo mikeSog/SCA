@@ -1,0 +1,6 @@
+Add secret
+We will set up the necessary secrets by visiting https://app.circleci.com/pipelines/github/username/django.nv, then click Project Settings on the top right and select Environment Variables to add the following variables in the form of key value pairs.
+
+Name	Value
+Key	PROD_URL
+Value	https://prod-9gws0jmr.lab.practical-devsecops.training

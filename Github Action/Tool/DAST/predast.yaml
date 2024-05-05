@@ -1,0 +1,13 @@
+Click the Secrets and variables tab, select Actions sections, then select New repository secret and add the following credentials into it.
+
+Name	Value
+Name	PROD_URL
+Value	https://prod-9gws0jmr.lab.practical-devsecops.training
+Once you’ve added the PROD_URL secret, click the Add Secret button.
+
+After adding the PROD_URL, proceed to add your Personal Access Token (PAT) to the Secrets:
+
+Name	Value
+Name	TOKEN
+Value	Input Your Personal Token
+Once you’ve added the TOKEN secret, click the Add Secret button.

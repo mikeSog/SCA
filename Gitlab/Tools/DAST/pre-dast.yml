@@ -1,0 +1,72 @@
+-- extra steps 
+Where do we get CI_REGISTRY_IMAGE and CI_COMMIT_SHA? Even though we haven’t defined it yet in GitLab 
+CI/CD variables, we use predefined variables to authenticate with the registry on GitLab, so we don’t 
+need to add any secrets to the settings. Please refer to the predefined environment variables here. 
+Save changes to the file using the Commit changes button. Once the pipeline completes, you will notice 
+that the release job is passed. To check if the image has been pushed, you can visit 
+Packages & Registries → Container Registry in your project. To run DAST exercises, we need a running 
+application on the staging/production machine. The following steps help you in setting up the django.nv 
+application on the prod machine. We have updated a build job to build and push the container into the 
+registry. Next, we will add the prod job to deploy our application after the build process. 
+The steps would be the same for either staging or production environment. 
+
+We need to add the following variables (Go to Project (django.nv) → Settings → CI/CD → Variables → Expand).
+Name	Value
+Key	PROD_USERNAME
+Value	root
+Name	Value
+Key	PROD_HOSTNAME
+Value	prod-9gws0jmr
+Name	Value
+Key	PROD_SSH_PRIVKEY
+Value	Copy the private key from the production machine using SSH
+The SSH key is available at /root/.ssh/id_rsa. You can use the following command to accomplish that.
+
+Log into production machine using SSH. “ssh root@prod-9gws0jmr”
+Then view the value of id_rsa. You can use the following command:” more /root/.ssh/id_rsa” 
+Please copy the complete value from the beginning (-----BEGIN RSA PRIVATE KEY-----) to 
+the last line (-----END RSA PRIVATE KEY-----) are also copied.  
+--- end extra steps-----
+
+-- deploy to production ---
+image: docker:20.10
+
+services:
+  - docker:dind
+
+stages:
+  - build
+  - deploy
+  - test
+
+build:
+  stage: build
+  before_script:
+   - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
+  script:
+   - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .  # Build the application into Docker image
+   - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA        # Push the image into registry
+
+prod:
+  stage: deploy
+  image: kroniak/ssh-client:3.6
+  environment: production
+  needs:
+    - build
+  only:
+    - main
+  before_script:
+   - mkdir -p ~/.ssh
+   - echo "$PROD_SSH_PRIVKEY" > ~/.ssh/id_rsa
+   - chmod 600 ~/.ssh/id_rsa
+   - eval "$(ssh-agent -s)"
+   - ssh-add ~/.ssh/id_rsa
+   - ssh-keyscan -t rsa $PROD_HOSTNAME >> ~/.ssh/known_hosts
+  script:
+   - echo
+   - |
+      ssh $PROD_USERNAME@$PROD_HOSTNAME << EOF
+        docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+        docker rm -f django.nv
+        docker run -d --name django.nv -p 8000:8000 $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+      EOF
