@@ -1,0 +1,40 @@
+-----PRE STEPS---------------
+Running ansible role as part of the CI pipeline.
+Let’s login into the GitLab and configure production machine https://gitlab-ce-9gws0jmr.lab.practical-devsecops.training/root/django-nv/-/settings/ci_cd.
+
+
+Click on the Expand button under the Variables section, then click the Add Variable button.
+
+Add the following key/value pair in the form.
+
+Name	Value
+Key	DEPLOYMENT_SERVER
+Value	prod-9gws0jmr
+Name	Value
+Key	DEPLOYMENT_SERVER_SSH_PRIVKEY
+Value	Copy the private key from the production machine using SSH. The SSH key is available at /root/.ssh/id_rsa. Please refer to Advanced Linux Exercises for a refresher on SSH Keys
+-------END PRE STEPS ---------
+------ansible-hardening.yml file ------
+---
+- name: Playbook to harden ubuntu OS.
+  hosts: prod
+  remote_user: root
+  become: yes
+
+  roles:
+    - dev-sec.os-hardening
+-----end ansible-hardening.yml file ----
+ansible-hardening:
+  stage: prod
+  image: willhallonline/ansible:2.9-ubuntu-18.04
+  before_script:
+    - mkdir -p ~/.ssh
+    - echo "$DEPLOYMENT_SERVER_SSH_PRIVKEY" | tr -d '\r' > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - eval "$(ssh-agent -s)"
+    - ssh-add ~/.ssh/id_rsa
+    - ssh-keyscan -t rsa $DEPLOYMENT_SERVER >> ~/.ssh/known_hosts
+  script:
+    - echo -e "[prod]\n$DEPLOYMENT_SERVER" >> inventory.ini
+    - ansible-galaxy install dev-sec.os-hardening
+    - ansible-playbook -i inventory.ini ansible-hardening.yml

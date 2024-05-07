@@ -1,0 +1,37 @@
+image: docker:latest
+
+services:
+  - docker:dind
+stages:
+  - build
+  - prod
+
+SNYKIac:
+  stage: build
+  image: node:alpine3.10
+  before_script:
+    - wget -O snyk https://github.com/snyk/cli/releases/download/v1.1156.0/snyk-alpine
+    - chmod +x snyk
+    - mv snyk /usr/local/bin/
+  script:
+    - npm install
+    - snyk auth $SNYK_TOKEN
+    - snyk iac test aws --json > snyk-results.json
+  artifacts:
+    paths: [snyk-results.json]
+    when: always
+    expire_in: one week
+  allow_failure: true  
+
+SNYKIaC2:
+  stage: build
+  script: 
+    - docker pull snyk/snyk:alpine
+    - docker run --rm --user $(id -u):$(id -g) --env $SNYK_TOKEN -v $(pwd):/data -t snyk/snyk:alpine snyk iac test aws --json > snyk-results2.json
+  artifacts:
+    paths: [snyk-results2.json]
+    when: always
+    expire_in: one week
+  allow_failure: true  
+
+

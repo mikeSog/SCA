@@ -1,0 +1,140 @@
+----------pre steps-------------------
+We need to add credentials into Jenkins, namely, SSH Private Key and SSH hostname of the machine we 
+are securing, i.e., production machine. Since we don’t want the credentials to be hardcoded in the 
+Jenkinsfile. Let’s add the creds to the Jenkins credential store by visiting 
+https://jenkins-9gws0jmr.lab.practical-devsecops.training/credentials/store/system/domain/_/.
+
+Click on the Add Credentials link on the left sidebar, and select SSH Username with private key as 
+Kind, then add the following credentials into it.
+
+Name	Value
+ID	ssh-prod
+Description	Credentials to login into Production machine
+Username	root
+Private Key	check Enter directly, click the Add button and copy the private key from Production 
+machine, available at /root/.ssh/id_rsa
+Passphrase	leave it blank because we want this process to be automatic without any human intervention.
+ If you desire more robust credential security mechanism, please use dedicated secret management 
+ systems like Hashicorp Vault.
+
+
+Add another credential to save SSH hostname, so it’s not hardcoded in the Jenkinsfile, 
+then select Secret text as Kind, then add the following credentials into it.
+
+Name	Value
+Secret	prod-9gws0jmr
+ID	prod-server
+---------end pre steps ----------------
+
+--------ansible-hardening.yml-------------
+---
+- name: Playbook to harden the Ubuntu OS.
+  hosts: prod
+  remote_user: root
+  become: yes
+
+  roles:
+    - dev-sec.os-hardening
+--------end ansible-hardening.yml------------
+pipeline {
+    agent any
+
+    options {
+        gitLabConnection('gitlab')
+    }
+
+    stages {
+        stage("build") {
+            agent {
+                docker {
+                    image 'python:3.6'
+                    args '-u root'
+                }
+            }
+            steps {
+                sh """
+                pip3 install --user virtualenv
+                python3 -m virtualenv env
+                . env/bin/activate
+                pip3 install -r requirements.txt
+                python3 manage.py check
+                """
+            }
+        }
+        stage("test") {
+            agent {
+                docker {
+                    image 'python:3.6'
+                    args '-u root'
+                }
+            }
+            steps {
+                sh """
+                pip3 install --user virtualenv
+                python3 -m virtualenv env
+                . env/bin/activate
+                pip3 install -r requirements.txt
+                python3 manage.py test taskManager
+                """
+            }
+        }
+        stage("integration") {
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    echo "This is an integration step"
+                    sh "exit 1"
+                }
+            }
+        }
+        stage("prod") {
+            steps {
+                input "Deploy to production?"
+                echo "This is a deploy step."
+            }
+        }
+        stage("ansible-hardening"){
+            agent {
+                docker {
+                    image 'willhallonline/ansible:2.13-ubuntu-20.04'
+                    args '-u root'
+                }
+            }
+            steps {
+                sshagent(['ssh-prod']) {
+                    withCredentials([string(credentialsId: 'prod-server', variable: 'DEPLOYMENT_SERVER')]) {
+                        sh """
+                        mkdir ~/.ssh
+                        ssh-keyscan -t rsa $DEPLOYMENT_SERVER >> ~/.ssh/known_hosts
+                        echo "[prod]\n$DEPLOYMENT_SERVER" >> inventory.ini
+                        ansible-galaxy install dev-sec.os-hardening
+                        ansible-playbook -i inventory.ini ansible-hardening.yml
+                        """
+                    }
+                }
+            }
+        }
+    }
+    post {
+        failure {
+            updateGitlabCommitStatus(name: "\${env.STAGE_NAME}", state: 'failed')
+        }
+        unstable {
+            updateGitlabCommitStatus(name: "\${env.STAGE_NAME}", state: 'failed')
+        }
+        success {
+            updateGitlabCommitStatus(name: "\${env.STAGE_NAME}", state: 'success')
+        }
+        aborted {
+            updateGitlabCommitStatus(name: "\${env.STAGE_NAME}", state: 'canceled')
+        }
+        always { 
+            deleteDir()                     // clean up workspace
+            dir("${WORKSPACE}@tmp") {       // clean up tmp directory
+                deleteDir()
+            }
+            dir("${WORKSPACE}@script") {    // clean up script directory
+                deleteDir()
+            }
+        }
+    }
+}

@@ -1,0 +1,56 @@
+image: docker:20.10  # To run all jobs in this pipeline, use a latest docker image
+
+services:
+  - docker:dind       # To run all jobs in this pipeline, use a docker image which contains a docker daemon running inside (dind - docker in docker). Reference: https://forum.gitlab.com/t/why-services-docker-dind-is-needed-while-already-having-image-docker/43534
+
+stages:
+  - validate
+  - build
+  - test
+  - release
+  - preprod
+  - integration
+  - prod
+
+checkov:
+  stage: validate
+  script:
+    - docker pull bridgecrew/checkov
+    - docker run --rm --user $(id -u):$(id -g) -w /src -v $(pwd):/src bridgecrew/checkov -d aws -o json | tee checkov-output.json
+  after_script:
+    - docker rmi bridgecrew/checkov
+  artifacts:
+    paths: [checkov-output.json]
+    when: always
+    expire_in: one week
+  allow_failure: true
+
+checkov2:
+  stage: validate
+  before_script:
+    - pip3 install checkov
+  script:
+    - checkov -d aws -o json > checkov-output2.json
+  artifacts:
+    paths: [checkov-output2.json]
+    when: always
+    expire_in: one week
+  allow_failure: true
+
+test:
+  stage: test
+  script:
+    - echo "This is a test step"
+
+integration:
+  stage: integration
+  script:
+    - echo "This is an integration step"
+    - exit 1
+  allow_failure: true # Even if the job fails, continue to the next stages
+
+prod:
+  stage: prod
+  script:
+    - echo "This is a deploy step."
+  when: manual # Continuous Delivery
