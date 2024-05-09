@@ -1,0 +1,27 @@
+image: docker:20.10
+
+services:
+  - docker:dind
+
+stages:
+  - test
+
+compliance:
+  stage: test
+  only:
+    - main
+  environment: production
+  before_script:
+    - mkdir -p ~/.ssh
+    - echo "$DEPLOYMENT_SERVER_SSH_PRIVKEY" | tr -d '\r' > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - eval "$(ssh-agent -s)"
+    - ssh-add ~/.ssh/id_rsa
+    - ssh-keyscan -t rsa $DEPLOYMENT_SERVER >> ~/.ssh/known_hosts
+  script:
+    - docker run -i --rm -v $(pwd):/share chef/inspec check challenge --chef-license accept
+    - docker run -i --rm -v $(pwd):/share chef/inspec exec challenge --chef-license accept --reporter json:/share/inspec-output.json
+  artifacts:
+    paths: [inspec-output.json]
+    when: always
+  allow_failure: true

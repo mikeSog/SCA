@@ -1,0 +1,43 @@
+---pre steps-----
+https://gitlab-ce-9gws0jmr.lab.practical-devsecops.training/root/django-nv/-/settings/ci_cd.
+Add the following key/value pair in the form.
+Name	Value
+Key	DEPLOYMENT_SERVER
+Value	prod-9gws0jmr
+
+Name	Value
+Key	DEPLOYMENT_SERVER_SSH_PRIVKEY
+Value	Copy the private key from the prod machine using SSH. The SSH key is available at /root/.ssh/id_rsa
+Finally, Click on the button Add Variable.
+---end pre steps-----
+image: docker:20.10  # To run all jobs in this pipeline, use a latest docker image
+
+services:
+  - docker:dind       # To run all jobs in this pipeline, use a docker image which contains a docker daemon running inside (dind - docker in docker). Reference: https://forum.gitlab.com/t/why-services-docker-dind-is-needed-while-already-having-image-docker/43534
+
+stages:
+  - build
+  - test
+  - release
+  - preprod
+  - integration
+  - prod
+
+inspec:
+  stage: prod
+  only:
+    - main
+  environment: production
+  before_script:
+    - mkdir -p ~/.ssh
+    - echo "$DEPLOYMENT_SERVER_SSH_PRIVKEY" | tr -d '\r' > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - eval "$(ssh-agent -s)"
+    - ssh-add ~/.ssh/id_rsa
+    - ssh-keyscan -t rsa $DEPLOYMENT_SERVER >> ~/.ssh/known_hosts
+  script:
+    - docker run --rm -v ~/.ssh:/root/.ssh -v $(pwd):/share hysnsec/inspec exec https://github.com/dev-sec/linux-baseline.git -t ssh://root@$DEPLOYMENT_SERVER -i ~/.ssh/id_rsa --chef-license accept --reporter json:/share/inspec-output.json
+  artifacts:
+    paths: [inspec-output.json]
+    when: always
+
