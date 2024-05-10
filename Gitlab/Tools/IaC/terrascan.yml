@@ -50,6 +50,21 @@ terrascan3:
     expire_in: one week
     when: always
 
+terrascan4: 
+  stage: validate
+  before_script: 
+    - docker pull tenable/terrascan
+  script: 
+    - docker run --rm --user $(id -u):$(id -g) -w /src -v $(pwd):/src:rw tenable/terrascan scan -d ./ -o json --severity high > result.json
+  after_script:
+    - docker rmi tenable/terrascan
+  artifacts:
+    paths: [result.json]
+    expire_in: 1 day
+    when: always
+  allow_failure: true
+
+
 test:
   stage: test
   script:
